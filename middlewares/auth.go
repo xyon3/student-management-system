@@ -41,11 +41,11 @@ func RequireAuth(c *gin.Context) {
 	})
 
 	if err != nil {
-		c.AbortWithStatus(http.StatusInternalServerError)
+		// c.AbortWithStatus(http.StatusInternalServerError)
 
-		// c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-		// 	"msg": "could not parse token",
-		// })
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+			"msg": "could not parse token",
+		})
 	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
