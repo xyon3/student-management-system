@@ -108,23 +108,29 @@ func EnrollStudent(c *gin.Context) {
 	// DO MORE
 
 	// INIT REQUEST BODY
-	var reqBody models.Enrolled
+	var reqBody models.EnrolledRequestBody
 
 	if err := c.ShouldBindJSON(&reqBody); err != nil {
-		c.AbortWithStatus(http.StatusInternalServerError)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+			"msg": "could not bind request body",
+		})
 		return
 	}
 
 	var dbData models.Enrolled
 	// CHECK IF STUDENT IS ALREADY ENROLLED IN THE COURSE
 	if result := models.DB.Where("studID = ? AND courseID = ?", reqBody.StudID, reqBody.CourseID).Find(&dbData); result.Error != nil {
-		c.AbortWithStatus(http.StatusInternalServerError)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+			"msg": "entity already exist",
+		})
 		return
 	}
 
 	// ENROLL STUDENT
 	if result := models.DB.Create(&reqBody); result.Error != nil {
-		c.AbortWithStatus(http.StatusInternalServerError)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+			"msg": "could not create entity",
+		})
 		return
 	}
 
