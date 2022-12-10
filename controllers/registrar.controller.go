@@ -69,27 +69,48 @@ func RegisterStudent(c *gin.Context) {
 
 	// CHECK IF AUTH IS ADMIN
 	if role, _ := c.Get("role"); role != "admin" {
-		c.AbortWithStatus(http.StatusUnauthorized)
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+			"": "",
+		})
 		return
 	}
 
 	// ATTACH REQUEST BODY TO MODEL
 	var reqBody models.Student
 	if err := c.ShouldBindJSON(&reqBody); err != nil {
-		c.AbortWithStatus(http.StatusInternalServerError)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+			"msg": "could not attach to request body",
+		})
 		return
 	}
 
 	// CHECK IF STUDENT ALREADY EXIST
 	var dbData models.Student
-	if result := models.DB.Where("studID = ?", reqBody.StudID).First(&dbData); result.Error != nil {
-		c.AbortWithStatus(http.StatusInternalServerError)
+	models.DB.Where("studID = ?", reqBody.StudID).First(&dbData)
+
+	if dbData.StudID != "" {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+			"msg": "entity already exist",
+		})
 		return
 	}
 
+	hashedPass, err := bcrypt.GenerateFromPassword([]byte(reqBody.Hash), bcrypt.DefaultCost)
+
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+			"msg": "could not hash the password",
+		})
+		return
+	}
+
+	reqBody.Hash = string(hashedPass)
+
 	// INSERT REQ BODY DATA TO tblStudent TABLE
-	if result := models.DB.Create(&dbData); result.Error != nil {
-		c.AbortWithStatus(http.StatusInternalServerError)
+	if result := models.DB.Create(&reqBody); result.Error != nil {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+			"msg": "DB failed",
+		})
 		return
 	}
 
@@ -140,6 +161,55 @@ func EnrollStudent(c *gin.Context) {
 	})
 }
 
+func BulkEnrollStudent(c *gin.Context) {
+	// if role, _ := c.Get("role"); role != "admin" {
+	// 	c.AbortWithStatus(http.StatusUnauthorized)
+	// 	return
+	// }
+
+	// DO MORE
+
+	// INIT REQUEST BODY
+	var reqBody []models.EnrolledRequestBody
+
+	if err := c.ShouldBindJSON(&reqBody); err != nil {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+			"msg": "could not bind request body",
+		})
+		return
+	}
+	// c.JSON(200, gin.H{
+	// 	"data": reqBody,
+	// })
+	// fmt.Println(len(reqBody))
+
+	var dbData models.Enrolled
+	for i := 1; i <= len(reqBody); i++ {
+
+		c.JSON(200,
+			reqBody[i],
+		)
+
+		if result := models.DB.Where("studID = ? AND courseID = ?", reqBody[i].StudID, reqBody[i].CourseID).Find(&dbData); result.Error != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+				"msg": "entity already exist",
+			})
+			return
+		}
+		if result := models.DB.Create(&reqBody[i]); result.Error != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+				"msg": "could not create entity",
+			})
+			return
+		}
+		c.JSON(http.StatusCreated, gin.H{
+			"msg":      "entity created",
+			"affected": i,
+		})
+	}
+
+}
+
 func InsertCourse(c *gin.Context) {
 	// CHECK IF AUTH IS ADMIN
 
@@ -162,7 +232,7 @@ func InsertCourse(c *gin.Context) {
 	// CHECK IF COURSE ALREADY EXIST
 	var dbData models.Course
 
-	if result := models.DB.Where("courseID = ?", reqBody.CourseID).First(&dbData); result.Error != nil {
+	if result := models.DB.Where("courseID = ?", reqBody.CourseID).First(&dbData); result.Error == nil {
 		// c.AbortWithStatus(http.StatusInternalServerError)
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
 			"msg": "course already exist",
