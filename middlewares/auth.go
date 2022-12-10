@@ -63,7 +63,9 @@ func RequireAuth(c *gin.Context) {
 				c.AbortWithStatus(http.StatusUnauthorized)
 			}
 			// Attach identity to request
-			c.Set("student", student)
+			c.Set("studID", student.StudID)
+			c.Set("name", student.Name)
+			c.Set("profileImg", student.ProfileImg)
 			c.Set("role", "student")
 		} else if claims["sub"] == "reg" {
 
