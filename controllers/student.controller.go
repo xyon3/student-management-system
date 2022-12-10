@@ -75,9 +75,26 @@ func StudentLogin(c *gin.Context) {
 
 func RetrieveEnrolledCourses(c *gin.Context) {
 	// STUDENT AUTH
+	if role, _ := c.Get("role"); role != "student" {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
 
-	// var enrolled []models.Enrolled
+	contextStudID, _ := c.Get("studID")
+
+	var enrolled []models.StudentEnrolledCourses
 	// RETRIVE ALL DATA WHERE studID == REQUEST BODY STUDENT ID
+	models.DB.Table("tblCourse").Select("tblCourse.*, tblStudent.ringDelay").Joins("JOIN juncEnrolled ON tblCourse.courseID = juncEnrolled.courseID").Joins("JOIN tblStudent ON tblStudent.studID = juncEnrolled.studID").Where("juncEnrolled.studID = ?", contextStudID).Find(&enrolled)
 
+	c.JSON(http.StatusOK, gin.H{
+		"data": enrolled,
+	})
+
+	// SELECT * FROM tblCourses:w
+
+	// INNER JOIN juncEnrolled
+	// ON tblCourses.courseID = juncEnrolled.courseID
+	// INNER JOIN tblStudent
+	// ON tblStudent.studID = juncEnrolled.studID
 	// DONE
 }
