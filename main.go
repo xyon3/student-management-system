@@ -18,7 +18,8 @@ func main() {
 	models.ConnectDB()
 
 	corsConfig := cors.DefaultConfig()
-	corsConfig.AllowOrigins = []string{"http://localhost:5173", "http://127.0.0.1:5173"}
+	// corsConfig.AllowOrigins = []string{"http://localhost:5173", "http://127.0.0.1:5173"}
+	corsConfig.AllowAllOrigins = true
 	corsConfig.AllowHeaders = []string{"Authorization"}
 	corsConfig.AllowCredentials = true
 	corsConfig.MaxAge = 3600 * 4
@@ -30,13 +31,17 @@ func main() {
 	// AUTH
 	app.POST("/auth/student", controllers.StudentLogin)
 	app.POST("/auth/registrar", controllers.RegistrarLogin)
+	app.POST("/auth/registrar/validate", middlewares.RequireAuth, controllers.ValidationResult)
 
 	// STUDENT
+	app.GET("/student/courses/enrolled", middlewares.RequireAuth, controllers.RetrieveEnrolledCourses)
 
 	// REGISTRAR
 	app.POST("/admin/courses/add", middlewares.RequireAuth, controllers.InsertCourse)
 	app.POST("/admin/student/add", middlewares.RequireAuth, controllers.RegisterStudent)
 	app.POST("/admin/student/enroll", middlewares.RequireAuth, controllers.EnrollStudent)
+
+	app.POST("/admin/student/enrolls", controllers.BulkEnrollStudent)
 
 	// MASTER
 	app.POST("/master/registrar/create", controllers.MasterCreateRegistrar)
