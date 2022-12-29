@@ -77,7 +77,8 @@ func RequireAuth(c *gin.Context) {
 			if registrar.RegID == "" {
 				c.AbortWithStatus(http.StatusUnauthorized)
 			}
-			c.Set("registrar", registrar)
+			c.Set("regID", registrar.RegID)
+			c.Set("name", registrar.Name)
 			c.Set("role", "admin")
 		}
 
