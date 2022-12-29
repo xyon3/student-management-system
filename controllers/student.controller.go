@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"encoding/json"
 	"net/http"
 	"os"
 	"time"
@@ -57,14 +58,6 @@ func StudentLogin(c *gin.Context) {
 		})
 		return
 	}
-	//////// DONE
-	// SEND IT BACK VIA CROSS ORIGIN REQUESTS
-	// DONE: MAKE THE SERVER STATELESS (REMOVE COOKIES ON SERVER WITHOUT BREAKING AUTH)
-	// JWT AS SESSION IS BAD *pouting emoji*
-
-	// c.SetSameSite(http.SameSiteLaxMode)
-	// c.SetCookie("auth", tokenString, 3600*24, "", "", false, true)
-	//////// DONE
 
 	c.JSON(http.StatusOK, gin.H{
 		"msg":    "login successfully",
@@ -73,6 +66,32 @@ func StudentLogin(c *gin.Context) {
 	})
 }
 
+func RetrieveStudentProfile(c *gin.Context) {
+
+	if role, _ := c.Get("role"); role != "student" {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+	contextStudID, _ := c.Get("studID")
+
+	var student models.Student
+
+	if err := models.DB.Select("studID, name, profileImg, ringDelay").Where("studID = ?", contextStudID).First(&student).Error; err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"status": http.StatusBadRequest,
+			"msg":    "student does not exist",
+			"err":    err,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": http.StatusOK,
+		"data":   student,
+	})
+
+}
+
+// todo: sort functionality
 func RetrieveEnrolledCourses(c *gin.Context) {
 	// STUDENT AUTH
 	if role, _ := c.Get("role"); role != "student" {
@@ -82,19 +101,119 @@ func RetrieveEnrolledCourses(c *gin.Context) {
 
 	contextStudID, _ := c.Get("studID")
 
-	var enrolled []models.StudentEnrolledCourses
-	// RETRIVE ALL DATA WHERE studID == REQUEST BODY STUDENT ID
-	models.DB.Table("tblCourse").Select("tblCourse.*, tblStudent.ringDelay").Joins("JOIN juncEnrolled ON tblCourse.courseID = juncEnrolled.courseID").Joins("JOIN tblStudent ON tblStudent.studID = juncEnrolled.studID").Where("juncEnrolled.studID = ?", contextStudID).Find(&enrolled)
+	if c.Param("studID") == contextStudID {
 
-	c.JSON(http.StatusOK, gin.H{
-		"data": enrolled,
-	})
+		var enrolled []models.StudentEnrolledCourses
 
-	// SELECT * FROM tblCourses:w
+		models.DB.Table("tblCourse").Select("tblCourse.*, tblStudent.ringDelay").Joins("JOIN juncEnrolled ON tblCourse.courseID = juncEnrolled.courseID").Joins("JOIN tblStudent ON tblStudent.studID = juncEnrolled.studID").Where("juncEnrolled.studID = ?", contextStudID).Find(&enrolled)
 
-	// INNER JOIN juncEnrolled
-	// ON tblCourses.courseID = juncEnrolled.courseID
-	// INNER JOIN tblStudent
-	// ON tblStudent.studID = juncEnrolled.studID
-	// DONE
+		c.AbortWithStatusJSON(http.StatusOK, gin.H{
+			"data": enrolled,
+		})
+	} else {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+			"msg": "unauthorized token",
+		})
+	}
 }
+
+func GetByDay(c *gin.Context) {
+	if role, _ := c.Get("role"); role != "student" {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	contextStudID, _ := c.Get("studID")
+
+	if c.Param("studID") == contextStudID {
+
+		var enrolled []models.StudentEnrolledCourses
+
+		models.DB.Table("tblCourse").Select("tblCourse.*, tblStudent.ringDelay").Joins("JOIN juncEnrolled ON tblCourse.courseID = juncEnrolled.courseID").Joins("JOIN tblStudent ON tblStudent.studID = juncEnrolled.studID").Where("juncEnrolled.studID = ?", contextStudID).Find(&enrolled)
+
+		type studentEnrolled struct {
+			CourseID    string   `json:"courseID" gorm:"primaryKey;column:courseID"`
+			Description string   `json:"description"`
+			Proctor     string   `json:"proctor"`
+			Day         []string `json:"day"`
+			StartTime   string   `json:"startTime" gorm:"column:startTime"`
+			EndTime     string   `json:"endTime" gorm:"column:endTime"`
+			RingDelay   string   `json:"ringDelay" gorm:"column:ringDelay"`
+			Room        string   `json:"roomLoc" gorm:"column:roomLoc"`
+		}
+
+		var enrolledFixedDay []studentEnrolled
+
+		for i := 0; i < len(enrolled); i++ {
+			var fixedDay []string
+			json.Unmarshal([]byte(enrolled[i].Day), &fixedDay)
+			enrolledFixedDay = append(enrolledFixedDay, studentEnrolled{
+				CourseID:    enrolled[i].CourseID,
+				Description: enrolled[i].Description,
+				Proctor:     enrolled[i].Proctor,
+				Day:         fixedDay,
+				StartTime:   enrolled[i].StartTime,
+				EndTime:     enrolled[i].EndTime,
+				RingDelay:   enrolled[i].RingDelay,
+				Room:        enrolled[i].Room,
+			})
+		}
+
+		// c.JSON(http.StatusOK, enrolledFixedDay)
+		// fmt.Println(len(enrolledFixedDay))
+
+		type perDay struct {
+			Day     string            `json:"day"`
+			Courses []studentEnrolled `json:"courses"`
+		}
+
+		var coursesPerDay []perDay
+
+		var DAYS = []string{"M", "T", "W", "TH", "F", "S"}
+
+		for currentDay := 0; currentDay < len(DAYS); currentDay++ {
+			var dayCourses []studentEnrolled
+			for currentCourse := 0; currentCourse < len(enrolledFixedDay); currentCourse++ {
+				for currentDayCourse := 0; currentDayCourse < len(enrolledFixedDay[currentCourse].Day); currentDayCourse++ {
+					if enrolledFixedDay[currentCourse].Day[currentDayCourse] == DAYS[currentDay] {
+						dayCourses = append(dayCourses, enrolledFixedDay[currentCourse])
+					}
+				}
+			}
+			coursesPerDay = append(coursesPerDay, perDay{
+				Day:     DAYS[currentDay],
+				Courses: dayCourses,
+			})
+
+		}
+		switch queryDay := c.Query("day"); queryDay {
+		case "monday":
+			c.JSON(http.StatusOK, coursesPerDay[0])
+		case "teusday":
+			c.JSON(http.StatusOK, coursesPerDay[1])
+		case "wednesday":
+			c.JSON(http.StatusOK, coursesPerDay[2])
+		case "thursday":
+			c.JSON(http.StatusOK, coursesPerDay[3])
+		case "friday":
+			c.JSON(http.StatusOK, coursesPerDay[4])
+		case "saturday":
+			c.JSON(http.StatusOK, coursesPerDay[5])
+		case "all":
+			c.JSON(http.StatusOK, coursesPerDay)
+		default:
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"msg":    "invalid params",
+				"status": http.StatusBadRequest,
+			})
+		}
+
+	} else {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+			"msg": "unauthorized token",
+		})
+	}
+
+}
+
+// FUNTCION: updateSudentProfile() [this can be accessed by the registrar]
