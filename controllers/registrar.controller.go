@@ -70,7 +70,8 @@ func RegisterStudent(c *gin.Context) {
 	// CHECK IF AUTH IS ADMIN
 	if role, _ := c.Get("role"); role != "admin" {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-			"": "",
+			"msg":    "unauthorized",
+			"status": http.StatusUnauthorized,
 		})
 		return
 	}
@@ -210,6 +211,26 @@ func BulkEnrollStudent(c *gin.Context) {
 
 }
 
+func AllCourses(c *gin.Context) {
+	if role, _ := c.Get("role"); role != "admin" {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+			"msg":    "unauthorized",
+			"status": http.StatusUnauthorized,
+		})
+		return
+	}
+
+	var courses []models.Course
+
+	models.DB.Find(&courses)
+
+	c.JSON(http.StatusOK, gin.H{
+		"data":   courses,
+		"status": http.StatusOK,
+	})
+
+}
+
 func InsertCourse(c *gin.Context) {
 	// CHECK IF AUTH IS ADMIN
 
@@ -250,5 +271,138 @@ func InsertCourse(c *gin.Context) {
 	// DONE
 	c.JSON(http.StatusCreated, gin.H{
 		"msg": "entity created",
+	})
+}
+
+// FUNCTION: updateCourse()
+func UpdateCourse(c *gin.Context) {
+	// Validate role
+	if role, _ := c.Get("role"); role != "admin" {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	// bind requestBody
+
+	// check if course exist
+
+	// update the data in database
+
+	// return ok
+}
+
+func DeleteStudent(c *gin.Context) {
+
+	if role, _ := c.Get("role"); role != "admin" {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	var tblStudent models.Student
+	if err := models.DB.Where("studID = ?", c.Param("studID")).Delete(&tblStudent).Error; err != nil {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+			"msg":    "could not delete entity",
+			"status": http.StatusInternalServerError,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"msg":    "successfully deleted",
+		"status": 200,
+	})
+}
+
+func StudentDropCourse(c *gin.Context) {
+
+	if role, _ := c.Get("role"); role != "admin" {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	var juncEnrolled models.Enrolled
+	if err := models.DB.Where(" studID = ? AND courseID = ?", c.Param("studID"), c.Param("courseID")).Delete(&juncEnrolled).Error; err != nil {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+			"msg":    "could not delete entity",
+			"status": http.StatusInternalServerError,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"msg":    "successfully deleted",
+		"status": 200,
+	})
+
+}
+
+func DeleteCourse(c *gin.Context) {
+	if role, _ := c.Get("role"); role != "admin" {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	var tblCourse models.Course
+	if err := models.DB.Where("courseID = ?", c.Param("courseID")).Delete(&tblCourse).Error; err != nil {
+
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+			"msg":    "could not delete entity",
+			"status": http.StatusInternalServerError,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"msg":    "successfully deleted",
+		"status": 200,
+	})
+}
+
+// FUNCTION: getDiffs()
+func GetDiff(c *gin.Context) {
+	// Validate role
+	if role, _ := c.Get("role"); role != "admin" {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+	//
+	var courses []models.Course
+
+	models.DB.Find(&courses)
+
+}
+
+func RetrieveAdminProfile(c *gin.Context) {
+	if role, _ := c.Get("role"); role != "admin" {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+	contextRegID, _ := c.Get("regID")
+
+	var registrar models.Registrar
+
+	if err := models.DB.Select("regID, name").Where("regID = ?", contextRegID).First(&registrar).Error; err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"status": http.StatusBadRequest,
+			"msg":    "id does not exist",
+			"err":    err,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": http.StatusOK,
+		"data":   registrar,
+	})
+
+}
+
+func RetrieveStudents(c *gin.Context) {
+	if role, _ := c.Get("role"); role != "admin" {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	var students []models.Student
+	models.DB.Find(&students)
+
+	c.JSON(http.StatusOK, gin.H{
+		"students": students,
 	})
 }
