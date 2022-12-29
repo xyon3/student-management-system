@@ -19,6 +19,7 @@ type StudentEnrolledCourses struct {
 	StartTime   string `json:"startTime" gorm:"column:startTime"`
 	EndTime     string `json:"endTime" gorm:"column:endTime"`
 	RingDelay   string `json:"ringDelay" gorm:"column:ringDelay"`
+	Room        string `json:"roomLoc" gorm:"column:roomLoc"`
 }
 
 func (Enrolled) TableName() string            { return "juncEnrolled" }

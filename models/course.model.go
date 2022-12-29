@@ -5,6 +5,7 @@ type Course struct {
 	Description string `json:"description"`
 	Proctor     string `json:"proctor"`
 	Day         string `json:"day"`
+	Room        string `json:"roomLoc" gorm:"column:roomLoc"`
 	StartTime   string `json:"startTime" gorm:"column:startTime"`
 	EndTime     string `json:"endTime" gorm:"column:endTime"`
 }
